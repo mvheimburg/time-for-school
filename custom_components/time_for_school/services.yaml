@@ -1,0 +1,88 @@
+set_config:
+  name: Set config
+  description: Update runtime settings for a Time for School alert.
+  target:
+    entity:
+      integration: time_for_school
+      domain: sensor
+  fields:
+    enabled:
+      name: Enabled
+      description: Master switch. Disabling stops a running alert.
+      selector:
+        boolean:
+    schedule:
+      name: Schedule
+      description: "Partial weekly schedule, e.g. {mon: {enabled: true, time: '07:45'}, sat: {enabled: false}}."
+      selector:
+        object:
+    blink_count:
+      name: Blink count
+      description: How many times each light blinks.
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+    blink_interval:
+      name: Blink interval
+      description: Seconds between each on/off step.
+      selector:
+        number:
+          min: 0.2
+          max: 10
+          step: 0.1
+          mode: box
+          unit_of_measurement: seconds
+    skip_next:
+      name: Skip next
+      description: Skip only the next occurrence, then resume the schedule.
+      selector:
+        boolean:
+
+set_day:
+  name: Set day
+  description: Enable/disable or change the time for one weekday.
+  target:
+    entity:
+      integration: time_for_school
+      domain: sensor
+  fields:
+    day:
+      name: Weekday
+      required: true
+      selector:
+        select:
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+    enabled:
+      name: Enabled
+      selector:
+        boolean:
+    time:
+      name: Time
+      description: Local time of the alert on that day.
+      selector:
+        time:
+
+trigger_now:
+  name: Trigger now
+  description: Run the alert immediately.
+  target:
+    entity:
+      integration: time_for_school
+      domain: sensor
+
+stop:
+  name: Stop
+  description: Stop a running alert and put the lights back as they were.
+  target:
+    entity:
+      integration: time_for_school
+      domain: sensor

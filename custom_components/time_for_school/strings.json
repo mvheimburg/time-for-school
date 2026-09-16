@@ -1,0 +1,31 @@
+{
+  "config": {
+    "error": {
+      "nothing_to_do": "Select at least one entity to turn off or one light to blink."
+    },
+    "step": {
+      "user": {
+        "description": "Configure the 'time to leave for school' alert.",
+        "data": {
+          "name": "Name",
+          "off_entities": "Entities to turn off (TVs, speakers, ...)",
+          "blink_lights": "Lights to blink"
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "nothing_to_do": "Select at least one entity to turn off or one light to blink."
+    },
+    "step": {
+      "init": {
+        "data": {
+          "name": "Name",
+          "off_entities": "Entities to turn off (TVs, speakers, ...)",
+          "blink_lights": "Lights to blink"
+        }
+      }
+    }
+  }
+}
