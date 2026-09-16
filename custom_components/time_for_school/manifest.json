@@ -1,7 +1,9 @@
 {
   "domain": "time_for_school",
   "name": "Time for School",
-  "codeowners": ["@mvheimburg"],
+  "codeowners": [
+    "@mvheimburg"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/mvheimburg/time-for-school",
@@ -10,5 +12,5 @@
   "issue_tracker": "https://github.com/mvheimburg/time-for-school/issues",
   "quality_scale": "bronze",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
