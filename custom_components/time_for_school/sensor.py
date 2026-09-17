@@ -14,8 +14,10 @@ from .alert import SchoolAlertEntity
 from .const import (
     ATTR_BLINK_COUNT,
     ATTR_BLINK_INTERVAL,
+    ATTR_BLINK_LIGHTS,
     ATTR_DAY,
     ATTR_ENABLED,
+    ATTR_OFF_ENTITIES,
     ATTR_SCHEDULE,
     ATTR_SKIP_NEXT,
     ATTR_TIME,
@@ -35,6 +37,8 @@ DAY_FIELDS = {
 }
 
 SET_CONFIG_FIELDS = {
+    vol.Optional(ATTR_OFF_ENTITIES): cv.entity_ids,
+    vol.Optional(ATTR_BLINK_LIGHTS): vol.All(cv.entity_ids, [cv.entity_domain("light")]),
     vol.Optional(ATTR_ENABLED): cv.boolean,
     vol.Optional(ATTR_SCHEDULE): vol.Schema({vol.In(WEEKDAYS): DAY_FIELDS}),
     vol.Optional(ATTR_BLINK_COUNT): vol.All(

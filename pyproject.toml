@@ -1,6 +1,6 @@
 [project]
 name = "time-for-school"
-version = "0.1.1"
+version = "0.2.0"
 description = "Home Assistant integration: 'time to leave for school' alert that turns things off and blinks lights on a weekly schedule."
 readme = "README.md"
 license = { file = "LICENSE" }

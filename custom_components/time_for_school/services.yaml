@@ -6,6 +6,26 @@ set_config:
       integration: time_for_school
       domain: sensor
   fields:
+    off_entities:
+      name: Entities to turn off
+      description: Replace the turn-off list. An empty list clears it.
+      selector:
+        entity:
+          multiple: true
+          domain:
+            - media_player
+            - switch
+            - light
+            - fan
+            - remote
+            - input_boolean
+    blink_lights:
+      name: Lights to blink
+      description: Replace the blinking lights. An empty list clears it.
+      selector:
+        entity:
+          multiple: true
+          domain: light
     enabled:
       name: Enabled
       description: Master switch. Disabling stops a running alert.

@@ -421,6 +421,18 @@ class SchoolAlertEntity(RestoreEntity, Entity):
     # ------------------------------------------------------------------ #
 
     async def async_set_config(self, **data: Any) -> None:
+        target_options = {
+            key: list(data[key])
+            for key in (CONF_OFF_ENTITIES, CONF_BLINK_LIGHTS)
+            if key in data
+        }
+        if target_options:
+            # Updating entry options reloads the entity; restore lights first.
+            if self._state == STATE_ALERTING:
+                await self.async_stop()
+            self.hass.config_entries.async_update_entry(
+                self._entry, options={**self._entry.options, **target_options}
+            )
         was_enabled = self._config.enabled
         self._apply_runtime_settings(data)
         if was_enabled and not self._config.enabled:

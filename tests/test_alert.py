@@ -56,6 +56,52 @@ async def test_setup_arms_next_school_day(hass, entry) -> None:
     assert s.attributes["can_stop"] is False
 
 
+async def test_update_targets_persists_and_changes_next_run(hass, entry, calls):
+    await setup_entry(hass, entry)
+    await call(hass, "set_config", off_entities=[SPEAKER], blink_lights=[LIGHT_OFF])
+    assert entry.options["off_entities"] == [SPEAKER]
+    assert entry.options["blink_lights"] == [LIGHT_OFF]
+    assert attr(hass, "off_entities") == [SPEAKER]
+    assert attr(hass, "blink_lights") == [LIGHT_OFF]
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await call(hass, "trigger_now")
+    await settle(hass)
+    assert calls["turn_off"][-1].data["entity_id"] == [SPEAKER]
+    assert calls["light_on"][-1].data["entity_id"] == LIGHT_OFF
+    assert not calls["light_off"]
+    await call(hass, "stop")
+
+
+async def test_clear_targets_preserves_other_options(hass, entry):
+    await setup_entry(hass, entry)
+    await call(hass, "set_config", off_entities=[])
+    assert attr(hass, "off_entities") == []
+    assert entry.options["blink_lights"] == [LIGHT_ON, LIGHT_OFF]
+    await call(hass, "set_config", blink_lights=[])
+    assert attr(hass, "blink_lights") == []
+
+
+async def test_blink_targets_must_be_lights(hass, entry):
+    await setup_entry(hass, entry)
+    with pytest.raises(vol.Invalid):
+        await call(hass, "set_config", blink_lights=[TV])
+    assert entry.options["blink_lights"] == [LIGHT_ON, LIGHT_OFF]
+
+
+async def test_change_targets_during_alert_restores_original_lights(hass, entry, calls):
+    await setup_entry(hass, entry)
+    await call(hass, "set_config", blink_interval=5)
+    await call(hass, "trigger_now")
+    await settle(hass)
+    await call(hass, "set_config", blink_lights=[])
+    assert state(hass).state == STATE_ARMED
+    assert calls["light_on"][-1].data["entity_id"] == LIGHT_ON
+    assert calls["light_off"][-1].data["entity_id"] == LIGHT_OFF
+    assert entry.options["blink_lights"] == []
+
+
 async def test_alert_turns_off_and_blinks_then_restores(hass, entry, freezer, calls, events):
     await setup_entry(hass, entry)
     await call(hass, "set_config", blink_count=3, blink_interval=1)

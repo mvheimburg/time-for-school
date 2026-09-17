@@ -40,10 +40,14 @@ All services target the sensor entity.
 
 | Service | Fields | What it does |
 | --- | --- | --- |
-| `time_for_school.set_config` | `enabled`, `schedule`, `blink_count`, `blink_interval`, `skip_next` | Update runtime settings. `schedule` is a partial map like `{mon: {enabled: true, time: "07:45"}, sat: {enabled: false}}`. |
+| `time_for_school.set_config` | `enabled`, `schedule`, `blink_count`, `blink_interval`, `skip_next`, `off_entities`, `blink_lights` | Update settings. `schedule` is a partial map like `{mon: {enabled: true, time: "07:45"}, sat: {enabled: false}}`. Device lists replace the previous selection; use `[]` to clear a list. |
 | `time_for_school.set_day` | `day` (`mon`..`sun`), `enabled`, `time` | Change one weekday. |
 | `time_for_school.trigger_now` | | Run the alert now. |
 | `time_for_school.stop` | | Stop a running alert and restore the lights. |
+
+Device selections are saved in the integration options and survive restarts.
+Changing a device list during an alert stops it and restores the original lights
+before reloading the entry with the new selection.
 
 ## Attributes
 
