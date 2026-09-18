@@ -1,3 +1,5 @@
+<img src="custom_components/time_for_school/brand/icon.png" alt="" width="96" align="right">
+
 # Time for School (Home Assistant integration)
 
 A "time to leave for school" house alert: at a set time on each school day it
