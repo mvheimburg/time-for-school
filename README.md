@@ -32,8 +32,10 @@ disarms everything, and `skip_next` skips exactly one occurrence.
 3. Add the integration from **Settings → Devices & services**, pick the
    entities to turn off and the lights to blink.
 
-One `sensor.<name>` entity is created per config entry with state
-`disarmed`, `armed` or `alerting`. All schedule settings are changed from the
+One sensor entity is created per config entry, on a device named after the
+name entered during setup. Its entity ID is that name plus `_school` in any
+Home Assistant language (`Barna` creates `sensor.barna_school`, from 0.3.0;
+existing entity IDs are kept). Its state is `disarmed`, `armed` or `alerting`. All schedule settings are changed from the
 card or the services below and survive restarts.
 
 ## Services

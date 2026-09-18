@@ -258,3 +258,26 @@ async def test_timedelta_between_occurrences(hass, entry) -> None:
     await call(hass, "set_config", skip_next=True)
     second = dt_util.parse_datetime(attr(hass, "next_fire"))
     assert second - first == timedelta(days=1)
+
+
+async def test_entity_id_is_name_and_school_in_any_language(hass, entry):
+    from .conftest import setup_entry
+
+    hass.config.language = "nb"
+    await setup_entry(hass, entry)
+    sensor = hass.states.get("sensor.barna_school")
+    assert sensor is not None
+    assert sensor.attributes["friendly_name"] == "Barna"
+
+
+async def test_existing_entity_keeps_its_id(hass, entry):
+    from homeassistant.helpers import entity_registry as er
+
+    from .conftest import setup_entry
+
+    er.async_get(hass).async_get_or_create(
+        "sensor", "time_for_school", entry.entry_id, suggested_object_id="barna", config_entry=entry
+    )
+    await setup_entry(hass, entry)
+    assert hass.states.get("sensor.barna") is not None
+    assert hass.states.get("sensor.barna_school") is None

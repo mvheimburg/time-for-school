@@ -19,7 +19,7 @@ from custom_components.time_for_school.const import (
     DOMAIN,
 )
 
-ENTITY_ID = "sensor.time_for_school"
+ENTITY_ID = "sensor.barna_school"
 TV = "media_player.tv"
 SPEAKER = "media_player.kitchen"
 LIGHT_ON = "light.hall"
@@ -54,7 +54,7 @@ def events(hass: HomeAssistant):
 def entry(hass: HomeAssistant) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Time for school",
+        title="Barna",
         data={},
         options={CONF_OFF_ENTITIES: [TV, SPEAKER], CONF_BLINK_LIGHTS: [LIGHT_ON, LIGHT_OFF]},
     )

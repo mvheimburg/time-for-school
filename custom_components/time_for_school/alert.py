@@ -19,6 +19,7 @@ from homeassistant.const import (
     WEEKDAYS,
 )
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -111,10 +112,23 @@ class SchoolAlertEntity(RestoreEntity, Entity):
     _attr_should_poll = False
     _attr_icon = "mdi:school"
 
+    @property
+    def suggested_object_id(self) -> str:
+        # Prefixed with the device (entry) name: "Barna" -> sensor.barna_school.
+        return "school"
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self._entry = entry
-        self._attr_name = entry.title or "Time for school"
+        # The entry name names a device; the entity takes that name, and its ID
+        # is "<name>_school" in any UI language (see suggested_object_id).
+        self._attr_name = None
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title or "Time for school",
+            manufacturer="Time for School",
+            model="School alert",
+        )
         self._attr_unique_id = entry.entry_id
 
         self._config = AlertConfig()
@@ -422,9 +436,7 @@ class SchoolAlertEntity(RestoreEntity, Entity):
 
     async def async_set_config(self, **data: Any) -> None:
         target_options = {
-            key: list(data[key])
-            for key in (CONF_OFF_ENTITIES, CONF_BLINK_LIGHTS)
-            if key in data
+            key: list(data[key]) for key in (CONF_OFF_ENTITIES, CONF_BLINK_LIGHTS) if key in data
         }
         if target_options:
             # Updating entry options reloads the entity; restore lights first.
