@@ -22,8 +22,15 @@ disarmed ─enable─▶ armed ─alert time─▶ alerting ─done / stop─▶
   was off blinks on/off and ends off.
 - **stop** cancels the blinking and restores each light to its pre-alert state.
 
-Each weekday has its own on/off switch and time. A master `enabled` switch
-disarms everything, and `skip_next` skips exactly one occurrence.
+There is one **default time** (`time_of_day`, 07:45 to begin with), like the
+Personal Wakeup alarm's. Each weekday has its own on/off switch and follows the
+default time, unless you give it a time of its own; **use default** puts it back
+on the default. A master `enabled` switch disarms everything, and `skip_next`
+skips exactly one occurrence.
+
+Upgrading from 0.3 or earlier, where every day had its own time: the most common
+time of the school days becomes the default, and only days with a different time
+keep it as their own. The alert times do not change.
 
 ## Installation (HACS)
 
@@ -44,8 +51,8 @@ All services target the sensor entity.
 
 | Service | Fields | What it does |
 | --- | --- | --- |
-| `time_for_school.set_config` | `enabled`, `schedule`, `blink_count`, `blink_interval`, `skip_next`, `off_entities`, `blink_lights` | Update settings. `schedule` is a partial map like `{mon: {enabled: true, time: "07:45"}, sat: {enabled: false}}`. Device lists replace the previous selection; use `[]` to clear a list. |
-| `time_for_school.set_day` | `day` (`mon`..`sun`), `enabled`, `time` | Change one weekday. |
+| `time_for_school.set_config` | `enabled`, `time_of_day`, `schedule`, `blink_count`, `blink_interval`, `skip_next`, `off_entities`, `blink_lights` | Update settings. `time_of_day` is the default time (0.4.0). `schedule` is a partial map like `{mon: {enabled: true, time: "08:10"}, sat: {enabled: false}, fri: {use_default: true}}`. Device lists replace the previous selection; use `[]` to clear a list. |
+| `time_for_school.set_day` | `day` (`mon`..`sun`), `enabled`, `time`, `use_default` | Change one weekday. `time` gives it a time of its own; `use_default: true` (0.4.0) makes it follow the default time again, as does a `time` equal to the default. |
 | `time_for_school.trigger_now` | | Run the alert now. |
 | `time_for_school.stop` | | Stop a running alert and restore the lights. |
 
@@ -55,7 +62,9 @@ before reloading the entry with the new selection.
 
 ## Attributes
 
-`enabled`, `schedule` (per weekday `{enabled, time}`), `blink_count`,
+`enabled`, `time_of_day`, `schedule` (per weekday `{enabled, time, custom}`:
+`time` is the time that day's alert fires, `custom` whether it is the day's own
+rather than the default; from 0.4.0), `blink_count`,
 `blink_interval`, `skip_next`, `next_fire`, `skipped_fire`, `run_started`,
 `off_entities`, `blink_lights`, `can_stop`.
 

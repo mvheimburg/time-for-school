@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import Counter
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
@@ -30,6 +31,7 @@ from .const import (
     ATTR_BLINK_INTERVAL,
     ATTR_BLINK_LIGHTS,
     ATTR_CAN_STOP,
+    ATTR_CUSTOM,
     ATTR_ENABLED,
     ATTR_NEXT_FIRE,
     ATTR_OFF_ENTITIES,
@@ -38,6 +40,8 @@ from .const import (
     ATTR_SKIP_NEXT,
     ATTR_SKIPPED_FIRE,
     ATTR_TIME,
+    ATTR_TIME_OF_DAY,
+    ATTR_USE_DEFAULT,
     CONF_BLINK_LIGHTS,
     CONF_OFF_ENTITIES,
     DEFAULT_BLINK_COUNT,
@@ -76,17 +80,19 @@ def _parse_time(raw: Any) -> time | None:
 @dataclass
 class DaySchedule:
     enabled: bool
-    time: time
+    #: The day's own time; ``None`` follows the default time.
+    time: time | None = None
 
-    def as_dict(self) -> dict[str, Any]:
-        return {ATTR_ENABLED: self.enabled, ATTR_TIME: self.time.isoformat(timespec="minutes")}
+    def as_dict(self, default: time) -> dict[str, Any]:
+        return {
+            ATTR_ENABLED: self.enabled,
+            ATTR_TIME: (self.time or default).isoformat(timespec="minutes"),
+            ATTR_CUSTOM: self.time is not None,
+        }
 
 
 def _default_schedule() -> dict[str, DaySchedule]:
-    default_time = _parse_time(DEFAULT_TIME)
-    return {
-        day: DaySchedule(enabled=day in DEFAULT_SCHOOL_DAYS, time=default_time) for day in WEEKDAYS
-    }
+    return {day: DaySchedule(enabled=day in DEFAULT_SCHOOL_DAYS) for day in WEEKDAYS}
 
 
 @dataclass
@@ -94,6 +100,7 @@ class AlertConfig:
     """User-adjustable runtime settings (persisted via restore state)."""
 
     enabled: bool = DEFAULT_ENABLED
+    time_of_day: time = field(default_factory=lambda: _parse_time(DEFAULT_TIME))
     schedule: dict[str, DaySchedule] = field(default_factory=_default_schedule)
     blink_count: int = DEFAULT_BLINK_COUNT
     blink_interval: float = DEFAULT_BLINK_INTERVAL
@@ -154,7 +161,8 @@ class SchoolAlertEntity(RestoreEntity, Entity):
         cfg = self._config
         return {
             ATTR_ENABLED: cfg.enabled,
-            ATTR_SCHEDULE: {day: cfg.schedule[day].as_dict() for day in WEEKDAYS},
+            ATTR_TIME_OF_DAY: cfg.time_of_day.isoformat(timespec="minutes"),
+            ATTR_SCHEDULE: {day: cfg.schedule[day].as_dict(cfg.time_of_day) for day in WEEKDAYS},
             ATTR_BLINK_COUNT: cfg.blink_count,
             ATTR_BLINK_INTERVAL: cfg.blink_interval,
             ATTR_SKIP_NEXT: cfg.skip_next,
@@ -170,7 +178,7 @@ class SchoolAlertEntity(RestoreEntity, Entity):
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
         if last_state is not None:
-            self._apply_runtime_settings(dict(last_state.attributes))
+            self._restore(dict(last_state.attributes))
         await self._reschedule()
         self._write()
 
@@ -207,7 +215,17 @@ class SchoolAlertEntity(RestoreEntity, Entity):
             EVENT_TYPE, {"entity_id": self.entity_id, "type": event_type, **extra}
         )
 
+    def _parse(self, raw: Any, what: str) -> time | None:
+        try:
+            parsed = _parse_time(raw)
+        except (TypeError, ValueError):
+            parsed = None
+        if parsed is None:
+            _LOGGER.error("Invalid %s %r for %s", what, raw, self.entity_id)
+        return parsed
+
     def _apply_day(self, day: str, data: dict[str, Any]) -> None:
+        """Change one weekday. A time of its own equal to the default follows the default."""
         day = str(day).strip().lower()[:3]
         if day not in WEEKDAYS:
             _LOGGER.error("Invalid weekday %r for %s", day, self.entity_id)
@@ -215,15 +233,52 @@ class SchoolAlertEntity(RestoreEntity, Entity):
         current = self._config.schedule[day]
         if ATTR_ENABLED in data:
             current.enabled = bool(data[ATTR_ENABLED])
-        if ATTR_TIME in data:
-            try:
-                parsed = _parse_time(data[ATTR_TIME])
-            except (TypeError, ValueError):
-                parsed = None
-            if parsed is None:
-                _LOGGER.error("Invalid time %r for %s", data[ATTR_TIME], self.entity_id)
-            else:
-                current.time = parsed
+        if data.get(ATTR_USE_DEFAULT):
+            current.time = None
+        elif ATTR_TIME in data and (parsed := self._parse(data[ATTR_TIME], "time")):
+            current.time = None if parsed == self._config.time_of_day else parsed
+
+    def _restore(self, data: dict[str, Any]) -> None:
+        """Apply restored attributes, migrating a schedule from before the default time.
+
+        Before 0.4.0 every day stored its own time. Then the most common time of the
+        school days becomes the default, and only days that differ keep their own.
+        """
+        schedule = data.get(ATTR_SCHEDULE)
+        if ATTR_TIME_OF_DAY in data or not isinstance(schedule, dict):
+            if isinstance(schedule, dict):
+                # A day follows the default unless it was stored as having its own.
+                data = {
+                    **data,
+                    ATTR_SCHEDULE: {
+                        day: (
+                            day_data
+                            if not isinstance(day_data, dict) or day_data.get(ATTR_CUSTOM)
+                            else {k: v for k, v in day_data.items() if k != ATTR_TIME}
+                        )
+                        for day, day_data in schedule.items()
+                    },
+                }
+            self._apply_runtime_settings(data)
+            return
+        # Every day had a time; one that was not stored was the old default.
+        full: dict[str, dict[str, Any]] = {}
+        times: list[time] = []
+        for day in WEEKDAYS:
+            day_data = schedule.get(day)
+            day_data = dict(day_data) if isinstance(day_data, dict) else {}
+            parsed = None
+            with suppress(TypeError, ValueError):
+                parsed = _parse_time(day_data.get(ATTR_TIME, DEFAULT_TIME))
+            parsed = parsed or _parse_time(DEFAULT_TIME)
+            enabled = bool(day_data.get(ATTR_ENABLED, day in DEFAULT_SCHOOL_DAYS))
+            # School days count double: they are the times in use.
+            times.extend([parsed] * (2 if enabled else 1))
+            full[day] = {**day_data, ATTR_TIME: parsed.isoformat(timespec="minutes")}
+        # The most common time, the earliest of equally common ones.
+        counts = Counter(times)
+        self._config.time_of_day = min(counts, key=lambda t: (-counts[t], t))
+        self._apply_runtime_settings({**data, ATTR_SCHEDULE: full})
 
     def _apply_runtime_settings(self, data: dict[str, Any]) -> None:
         """Apply runtime settings from service data or restored attributes."""
@@ -231,6 +286,15 @@ class SchoolAlertEntity(RestoreEntity, Entity):
 
         if ATTR_ENABLED in data:
             cfg.enabled = bool(data[ATTR_ENABLED])
+
+        if ATTR_TIME_OF_DAY in data and (
+            parsed := self._parse(data[ATTR_TIME_OF_DAY], "time_of_day")
+        ):
+            cfg.time_of_day = parsed
+            # A day whose own time is now the default follows it.
+            for day in cfg.schedule.values():
+                if day.time == parsed:
+                    day.time = None
 
         if ATTR_SCHEDULE in data and isinstance(data[ATTR_SCHEDULE], dict):
             for day, day_data in data[ATTR_SCHEDULE].items():
@@ -280,7 +344,8 @@ class SchoolAlertEntity(RestoreEntity, Entity):
             day_cfg = self._config.schedule[WEEKDAYS[day.weekday()]]
             if not day_cfg.enabled:
                 continue
-            candidate = datetime.combine(day, day_cfg.time, tzinfo=now_local.tzinfo)
+            at = day_cfg.time or self._config.time_of_day
+            candidate = datetime.combine(day, at, tzinfo=now_local.tzinfo)
             if candidate <= now_local:
                 continue
             found.append(dt_util.as_utc(candidate))
@@ -439,12 +504,17 @@ class SchoolAlertEntity(RestoreEntity, Entity):
             key: list(data[key]) for key in (CONF_OFF_ENTITIES, CONF_BLINK_LIGHTS) if key in data
         }
         if target_options:
-            # Updating entry options reloads the entity; restore lights first.
+            # Updating entry options reloads the entity: restore lights first, and
+            # leave scheduling to the new entity, which restores these settings.
             if self._state == STATE_ALERTING:
                 await self.async_stop()
+            self._cancel_timer()
+            self._apply_runtime_settings(data)
+            self._write()
             self.hass.config_entries.async_update_entry(
                 self._entry, options={**self._entry.options, **target_options}
             )
+            return
         was_enabled = self._config.enabled
         self._apply_runtime_settings(data)
         if was_enabled and not self._config.enabled:

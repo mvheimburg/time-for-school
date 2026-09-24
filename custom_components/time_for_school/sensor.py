@@ -21,6 +21,8 @@ from .const import (
     ATTR_SCHEDULE,
     ATTR_SKIP_NEXT,
     ATTR_TIME,
+    ATTR_TIME_OF_DAY,
+    ATTR_USE_DEFAULT,
     MAX_BLINK_COUNT,
     MAX_BLINK_INTERVAL,
     MIN_BLINK_COUNT,
@@ -34,12 +36,14 @@ from .const import (
 DAY_FIELDS = {
     vol.Optional(ATTR_ENABLED): cv.boolean,
     vol.Optional(ATTR_TIME): vol.Any(cv.time, cv.string),
+    vol.Optional(ATTR_USE_DEFAULT): cv.boolean,
 }
 
 SET_CONFIG_FIELDS = {
     vol.Optional(ATTR_OFF_ENTITIES): cv.entity_ids,
     vol.Optional(ATTR_BLINK_LIGHTS): vol.All(cv.entity_ids, [cv.entity_domain("light")]),
     vol.Optional(ATTR_ENABLED): cv.boolean,
+    vol.Optional(ATTR_TIME_OF_DAY): vol.Any(cv.time, cv.string),
     vol.Optional(ATTR_SCHEDULE): vol.Schema({vol.In(WEEKDAYS): DAY_FIELDS}),
     vol.Optional(ATTR_BLINK_COUNT): vol.All(
         vol.Coerce(int), vol.Range(min=MIN_BLINK_COUNT, max=MAX_BLINK_COUNT)

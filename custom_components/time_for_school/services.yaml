@@ -31,9 +31,14 @@ set_config:
       description: Master switch. Disabling stops a running alert.
       selector:
         boolean:
+    time_of_day:
+      name: Default time
+      description: The time every school day uses unless it has its own.
+      selector:
+        time:
     schedule:
       name: Schedule
-      description: "Partial weekly schedule, e.g. {mon: {enabled: true, time: '07:45'}, sat: {enabled: false}}."
+      description: "Partial weekly schedule, e.g. {mon: {enabled: true, time: '07:45'}, sat: {enabled: false}, fri: {use_default: true}}. A time gives the day its own time."
       selector:
         object:
     blink_count:
@@ -87,9 +92,14 @@ set_day:
         boolean:
     time:
       name: Time
-      description: Local time of the alert on that day.
+      description: A time of its own for that day. The default time makes the day follow the default again.
       selector:
         time:
+    use_default:
+      name: Use default time
+      description: Drop the day's own time so it follows the default time.
+      selector:
+        boolean:
 
 trigger_now:
   name: Trigger now

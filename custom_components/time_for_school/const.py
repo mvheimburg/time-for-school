@@ -24,6 +24,11 @@ ATTR_BLINK_INTERVAL = "blink_interval"
 ATTR_SKIP_NEXT = "skip_next"
 ATTR_DAY = "day"
 ATTR_TIME = "time"
+# The default time every school day uses unless it has its own.
+ATTR_TIME_OF_DAY = "time_of_day"
+# A day's time of its own (schedule attribute), and the set_day field that drops it.
+ATTR_CUSTOM = "custom"
+ATTR_USE_DEFAULT = "use_default"
 
 # Read-only attributes
 ATTR_NEXT_FIRE = "next_fire"

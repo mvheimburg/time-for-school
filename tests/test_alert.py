@@ -49,8 +49,9 @@ async def test_setup_arms_next_school_day(hass, entry) -> None:
     s = state(hass)
     assert s.state == STATE_ARMED
     assert local_next(hass) == "Tue 07:45"
-    assert s.attributes["schedule"]["sat"] == {"enabled": False, "time": "07:45"}
-    assert s.attributes["schedule"]["mon"] == {"enabled": True, "time": "07:45"}
+    assert s.attributes["time_of_day"] == "07:45"
+    assert s.attributes["schedule"]["sat"] == {"enabled": False, "time": "07:45", "custom": False}
+    assert s.attributes["schedule"]["mon"] == {"enabled": True, "time": "07:45", "custom": False}
     assert s.attributes["off_entities"] == [TV, SPEAKER]
     assert s.attributes["blink_lights"] == [LIGHT_ON, LIGHT_OFF]
     assert s.attributes["can_stop"] is False
@@ -169,7 +170,33 @@ async def test_set_day_and_schedule(hass, entry) -> None:
         schedule={"wed": {"enabled": False}, "sat": {"enabled": True, "time": "09:00"}},
     )
     assert local_next(hass) == "Thu 07:45"
-    assert attr(hass, "schedule")["sat"] == {"enabled": True, "time": "09:00"}
+    assert attr(hass, "schedule")["sat"] == {"enabled": True, "time": "09:00", "custom": True}
+
+
+async def test_default_time_and_days_of_their_own(hass, entry) -> None:
+    await setup_entry(hass, entry)
+    await call(hass, "set_day", day="wed", time="08:10")
+    await call(hass, "set_config", time_of_day="08:00")
+    schedule = attr(hass, "schedule")
+    # Days follow the default; a day with its own time keeps it.
+    assert attr(hass, "time_of_day") == "08:00"
+    assert schedule["tue"] == {"enabled": True, "time": "08:00", "custom": False}
+    assert schedule["wed"] == {"enabled": True, "time": "08:10", "custom": True}
+    assert local_next(hass) == "Tue 08:00"
+
+    await call(hass, "set_day", day="wed", use_default=True)
+    assert attr(hass, "schedule")["wed"] == {"enabled": True, "time": "08:00", "custom": False}
+
+    # A day set to the default time follows the default from then on.
+    await call(hass, "set_day", day="thu", time="08:00")
+    await call(hass, "set_config", time_of_day="07:30")
+    assert attr(hass, "schedule")["thu"]["time"] == "07:30"
+    assert attr(hass, "schedule")["thu"]["custom"] is False
+
+    # Setting the default to a day's own time makes that day follow it.
+    await call(hass, "set_day", day="fri", time="09:00")
+    await call(hass, "set_config", time_of_day="09:00")
+    assert attr(hass, "schedule")["fri"]["custom"] is False
 
 
 async def test_all_days_disabled(hass, entry) -> None:
@@ -241,6 +268,57 @@ async def test_restore_settings(hass, entry) -> None:
     assert s.attributes["schedule"]["tue"]["enabled"] is False
     assert s.attributes["schedule"]["fri"]["time"] == "08:30"
     assert local_next(hass) == "Wed 07:45"
+    # From before the default time: the common time becomes it, Friday keeps its own.
+    assert s.attributes["time_of_day"] == "07:45"
+    assert s.attributes["schedule"]["fri"]["custom"] is True
+    assert s.attributes["schedule"]["mon"]["custom"] is False
+
+
+async def test_restore_migrates_a_schedule_without_a_default(hass, entry) -> None:
+    old = {
+        day: {"enabled": day in ("mon", "tue", "wed", "thu", "fri"), "time": "08:15"}
+        for day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    }
+    old["fri"]["time"] = "09:00"
+    old["sat"]["time"] = "10:00"
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_ARMED, {"schedule": old})])
+    await setup_entry(hass, entry)
+    schedule = attr(hass, "schedule")
+    assert attr(hass, "time_of_day") == "08:15"
+    assert {day: (d["time"], d["custom"]) for day, d in schedule.items()} == {
+        "mon": ("08:15", False),
+        "tue": ("08:15", False),
+        "wed": ("08:15", False),
+        "thu": ("08:15", False),
+        "fri": ("09:00", True),
+        "sat": ("10:00", True),
+        "sun": ("08:15", False),
+    }
+
+
+async def test_restore_keeps_the_default_and_days_of_their_own(hass, entry) -> None:
+    mock_restore_cache(
+        hass,
+        [
+            State(
+                ENTITY_ID,
+                STATE_ARMED,
+                {
+                    "time_of_day": "07:30",
+                    "schedule": {
+                        "mon": {"enabled": True, "time": "07:45", "custom": False},
+                        "wed": {"enabled": True, "time": "08:40", "custom": True},
+                    },
+                },
+            )
+        ],
+    )
+    await setup_entry(hass, entry)
+    schedule = attr(hass, "schedule")
+    assert attr(hass, "time_of_day") == "07:30"
+    # Monday's 07:45 was the old default shown, not a time of its own.
+    assert schedule["mon"] == {"enabled": True, "time": "07:30", "custom": False}
+    assert schedule["wed"] == {"enabled": True, "time": "08:40", "custom": True}
 
 
 async def test_invalid_values_clamped(hass, entry) -> None:
